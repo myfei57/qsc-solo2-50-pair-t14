@@ -1,0 +1,29 @@
+[project]
+name = "rubbercure"
+version = "1.0.0"
+description = "Batch curing line scheduling runtime for multi-cavity presses"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.setuptools]
+packages = [
+    "rubbercure",
+    "rubbercure.ns",
+    "rubbercure.store",
+    "rubbercure.audit",
+    "rubbercure.mold",
+    "rubbercure.lift",
+    "rubbercure.steam",
+    "rubbercure.temp",
+    "rubbercure.timer",
+    "rubbercure.cool",
+    "rubbercure.press",
+    "rubbercure.batch",
+    "rubbercure.sequence",
+    "rubbercure.console",
+]

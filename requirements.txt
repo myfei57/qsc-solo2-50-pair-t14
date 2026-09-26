@@ -1,0 +1,7 @@
+# 运行期直接依赖：PyYAML 6.0.3（已 vendor 到 vendor/yaml，离线可用）。
+# 安装方式（有网时）: python -m pip install -r requirements.txt
+# 离线部署不执行此步，直接使用仓库内 vendor/ 目录。
+PyYAML==6.0.3
+
+# 开发／验证依赖：仅测试与交付门禁使用，不进入生产运行期。
+pytest>=9.0

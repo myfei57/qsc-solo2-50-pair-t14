@@ -1,0 +1,48 @@
+platform:
+  name: RubberCure
+  project_id: zxy-73-py
+  storage_root: var/state
+
+limits:
+  mold:
+    max_cavities: 8
+    sensor_map_max_age_s: 172800.0
+  press:
+    fleet_size: 3
+    default_thickness_mm: 6.0
+    default_product_code: RB-215
+  steam:
+    target_pressure_kpa: 640.0
+    min_pressure_kpa: 80.0
+    max_pressure_kpa: 760.0
+    safe_residual_kpa: 12.0
+    purge_hold_s: 20.0
+    purge_token_max_age_s: 180.0
+    vent_hold_s: 8.0
+    valve_rated_flow_kg_h: 960.0
+    trap_rated_flow_kg_h: 240.0
+  temp:
+    setpoint_c: 151.0
+    tolerance_c: 2.0
+    warmup_rate_c_per_min: 6.0
+    confirm_hold_s: 60.0
+    max_cavity_spread_c: 3.0
+  timer:
+    default_nominal_s: 600.0
+    shortfall_ratio: 0.05
+    overrun_ratio: 0.08
+  cool:
+    rated_flow_m3_h: 18.0
+    min_flow_m3_h: 6.0
+    alarm_inlet_c: 32.0
+    alarm_outlet_c: 48.0
+    drain_hold_s: 30.0
+  batch:
+    dispatch_window_s: 180.0
+    max_queue: 12
+
+pages:
+  - press
+  - steam
+  - timer
+  - alarms
