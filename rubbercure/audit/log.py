@@ -25,20 +25,59 @@ class AuditLog:
         self._records: list[AuditRecord] = []
         self._counters: dict[str, int] = {}
         self._lock = threading.RLock()
-        bus.subscribe("*", self._on_event)
+        # 审计走独立有界邮箱：磁盘写入再慢也不会反过来阻塞控制循环；堆积时
+        # 丢最旧事件保最新事件，最近的告警无论如何都要排得进来。入队只做
+        # 很短的限时等待（fsync 卡顿时发布方每事件最多付出这一点时间）。
+        bus.subscribe(
+            "*",
+            self._on_event,
+            name="audit-log",
+            queue_size=1024,
+            enqueue_timeout_s=0.001,
+        )
 
     def _on_event(self, event: Event) -> None:
         self.record(AuditRecord.from_event(self._clock.now(), event))
 
-    def record(self, record: AuditRecord) -> AuditRecord:
-        """写入一条审计记录（内存 + 磁盘）。"""
+    def note_bus_fault(
+        self,
+        kind: str,
+        subscriber: str,
+        severity: str = "warning",
+        *,
+        persist: bool = True,
+        **detail: object,
+    ) -> AuditRecord:
+        """记录一条订阅者故障（处理器报错或邮箱溢出）。
+
+        由总线钩子直接调用、不经过总线，避免审计订阅者自身故障时形成递归
+        上报。``persist=False`` 时只进内存（审计邮箱本身已溢出的场景）。
+        """
+
+        record = AuditRecord.create(
+            self._clock.now(),
+            "eventbus",
+            f"subscriber_{kind}",
+            subscriber,
+            severity=severity,
+            **detail,
+        )
+        return self.record(record, persist=persist)
+
+    def record(self, record: AuditRecord, *, persist: bool = True) -> AuditRecord:
+        """写入一条审计记录（内存 + 磁盘）。
+
+        ``persist=False`` 时只更新内存尾部，供审计订阅者自身已堆积的故障
+        上报使用——此时再做一次同步磁盘写只会进一步拖慢发布方。
+        """
 
         with self._lock:
             self._records.append(record)
             if len(self._records) > _MEMORY_LIMIT:
                 del self._records[: len(self._records) - _MEMORY_LIMIT]
             self._counters[record.severity] = self._counters.get(record.severity, 0) + 1
-        self._journal.append(record.as_dict())
+        if persist:
+            self._journal.append(record.as_dict())
         return record
 
     def entries(self, limit: int = 100) -> list[dict]:

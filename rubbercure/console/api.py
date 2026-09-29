@@ -51,10 +51,12 @@ class ConsoleAPI:
         return {"window_s": window, "start": round(start, 3), "end": round(end, 3), "series": result}
 
     def alarms(self) -> dict:
+        self.platform.drain_events(timeout_s=0.5)
         alarms = self.platform.audit.alarms()
         return {"count": len(alarms), "alarms": alarms}
 
     def audit(self, limit: int = 100) -> dict:
+        self.platform.drain_events(timeout_s=0.5)
         bounded = max(1, min(MAX_AUDIT_LIMIT, int(limit)))
         return {
             "entries": self.platform.audit.entries(bounded),

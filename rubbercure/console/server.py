@@ -157,6 +157,8 @@ class ConsoleServer:
         if self._thread is not None:
             self._thread.join(timeout=5.0)
             self._thread = None
+        # 排空审计等异步订阅者并退出它们的工作线程，避免关停丢审计尾部。
+        self.platform.shutdown(timeout_s=2.0)
 
 
 def probe_pages(base_url: str, pages: tuple[str, ...], timeout: float = 5.0) -> dict:

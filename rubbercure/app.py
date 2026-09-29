@@ -77,6 +77,7 @@ class Platform:
         self.audit = AuditLog(
             self.clock, self.bus, JsonlJournal(self.store.root, "audit", segment_limit=512)
         )
+        self._wire_bus_alarms()
         self.namespaces = NamespaceRegistry(unit)
         self.topology: Topology = build_default_topology()
         self.trend = TrendBuffer(period_s=5.0)
@@ -103,6 +104,41 @@ class Platform:
             self.config.timer.default_nominal_s,
             self.clock.now(),
         )
+
+    def _wire_bus_alarms(self) -> None:
+        """把订阅者处理器报错与邮箱溢出转成审计告警。
+
+        钩子直接写审计、不再发布总线事件，避免审计订阅者自己出故障时递归
+        上报。审计邮箱溢出时磁盘写本身可能也在阻塞控制循环，因此这种情况
+        只更新内存告警，不做同步落盘。
+        """
+
+        def on_handler_error(detail: dict) -> None:
+            self.audit.note_bus_fault(
+                "error",
+                str(detail.get("subscriber", "?")),
+                severity="warning",
+                event=str(detail.get("event", "")),
+                error=str(detail.get("error", "")),
+            )
+
+        def on_overflow(detail: dict) -> None:
+            subscriber = str(detail.get("subscriber", "?"))
+            self.audit.note_bus_fault(
+                "overflow",
+                subscriber,
+                severity="alarm",
+                # 审计邮箱自己堆满时磁盘大概率也跟不上，只进内存，不再同步
+                # 追加磁盘把发布方再拖一次。
+                persist=subscriber != "audit-log",
+                queue_size=detail.get("queue_size", 0),
+                dropped_total=detail.get("dropped_total", 0),
+                policy=str(detail.get("policy", "")),
+                dropped_event=str(detail.get("dropped_event", "")),
+            )
+
+        self.bus.on_handler_error(on_handler_error)
+        self.bus.on_subscriber_overflow(on_overflow)
 
     def _register_namespaces(self) -> None:
         """登记现场设备命名空间（控制台与审计共用同一套名字）。"""
@@ -416,8 +452,21 @@ class Platform:
             "ordered": first[:5],
         }
 
+    def drain_events(self, timeout_s: float = 1.0) -> bool:
+        """等待异步订阅者（审计等）把已发布事件处理完，返回是否全部排空。
+
+        控制台读取审计/告警前和关停流程调用；控制循环本身不需要等。
+        """
+
+        return self.bus.drain(timeout_s)
+
+    def shutdown(self, timeout_s: float = 2.0) -> None:
+        """关停平台：排空订阅者邮箱并退出总线工作线程。"""
+
+        self.bus.close(timeout_s)
+
     def note_error(self, error: RubberCureError) -> dict:
-        """把平台异常写入审计，返回落盘记录。"""
+        """把平台异常直接写入审计，返回落盘记录（不经过总线，保证同步可见）。"""
 
         payload = error.as_record()
         record = self.audit.record(
@@ -461,6 +510,7 @@ class Platform:
             "scheduler": self.scheduler.snapshot(),
             "presses": self.fleet.snapshot(),
             "trend": self.trend.snapshot(),
+            "event_bus": self.bus.subscriber_health(),
             "namespaces_by_area": self.namespaces_by_area(),
             "audit": self.audit.summary(),
             "endpoints": self.endpoints(),
