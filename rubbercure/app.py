@@ -443,6 +443,11 @@ class Platform:
         self.latch.release_all()
         return {"storage_root": self.store.root, "cleared": [item for item in removed if item]}
 
+    def shutdown(self, timeout: float = 5.0) -> bool:
+        """等待后台订阅者处理完事件并关闭总线。"""
+
+        return self.bus.close(timeout=timeout)
+
     def status(self) -> dict:
         """汇总状态快照，供控制台与命令行读取。"""
 
@@ -463,6 +468,7 @@ class Platform:
             "trend": self.trend.snapshot(),
             "namespaces_by_area": self.namespaces_by_area(),
             "audit": self.audit.summary(),
+            "event_bus": self.bus.status(),
             "endpoints": self.endpoints(),
         }
 

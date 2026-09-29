@@ -51,12 +51,14 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         except KeyboardInterrupt:  # pragma: no cover - 交互路径
             pass
         server.stop()
+        platform.shutdown()
         return 0
     try:
         while True:
             time.sleep(1.0)
     except KeyboardInterrupt:  # pragma: no cover - 交互路径
         server.stop()
+        platform.shutdown()
     return 0
 
 
@@ -90,6 +92,7 @@ def _cmd_demo(args: argparse.Namespace) -> int:
     base_url = server.start()
     probe = probe_pages(base_url, platform.config.pages)
     server.stop()
+    platform.bus.drain(timeout=5.0)
 
     report = {
         "cure": cure,
@@ -109,7 +112,9 @@ def _cmd_demo(args: argparse.Namespace) -> int:
     failures += [name for name, item in probe.items() if not item["ok"]]
     if failures:
         print(f"检查未通过: {failures}", file=sys.stderr)
+        platform.shutdown()
         return 1
+    platform.shutdown()
     return 0
 
 
@@ -118,6 +123,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
     payload = platform.status()
     payload["topology"] = platform.topology_summary()
     payload["namespaces"] = platform.namespaces.describe()
+    platform.shutdown()
     _dump(payload)
     return 0
 
@@ -131,6 +137,7 @@ def _cmd_config(args: argparse.Namespace) -> int:
 def _cmd_reset(args: argparse.Namespace) -> int:
     platform = _build(args)
     cleared = platform.reset_state()
+    platform.shutdown()
     _dump({"storage_root": platform.store.root, "cleared": cleared["cleared"]})
     return 0
 

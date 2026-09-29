@@ -23,4 +23,8 @@ def clock() -> ManualClock:
 
 @pytest.fixture()
 def platform(tmp_path, clock) -> Platform:
-    return build_platform(default_config(), clock=clock, storage_root=str(tmp_path / "state"))
+    instance = build_platform(
+        default_config(), clock=clock, storage_root=str(tmp_path / "state")
+    )
+    yield instance
+    instance.bus.close(timeout=5.0)

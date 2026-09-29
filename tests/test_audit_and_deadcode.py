@@ -14,6 +14,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def test_alarm_entries_are_captured(platform):
     platform.run_cure("mold-A", cavity_count=2)
     platform.press("press-01").cooling.measure(60.0, 70.0)
+    assert platform.bus.drain(timeout=5.0)
     alarms = platform.audit.alarms()
     assert alarms
     assert any(item["severity"] == "alarm" for item in alarms)
@@ -39,6 +40,7 @@ def test_events_are_published_to_subscribers(platform):
     seen: list[str] = []
     unsubscribe = platform.bus.subscribe("steam", lambda event: seen.append(event.action))
     platform.press("press-01").steam.open_steam(platform.config.steam.target_pressure_kpa)
+    assert platform.bus.drain(timeout=5.0)
     assert "trap_opened" in seen and "steam_opened" in seen
     unsubscribe()
     assert platform.bus.history("steam")

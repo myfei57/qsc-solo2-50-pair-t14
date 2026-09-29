@@ -83,6 +83,7 @@ class ConsoleAPI:
             "curves": sorted(platform.curves.snapshot()),
             "steam_target_kpa": platform.config.steam.target_pressure_kpa,
             "temp_setpoint_c": platform.config.temp.setpoint_c,
+            "event_bus": platform.bus.status(),
         }
 
     def cure(self, payload: dict) -> dict:

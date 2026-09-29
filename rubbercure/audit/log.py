@@ -25,7 +25,7 @@ class AuditLog:
         self._records: list[AuditRecord] = []
         self._counters: dict[str, int] = {}
         self._lock = threading.RLock()
-        bus.subscribe("*", self._on_event)
+        bus.subscribe("*", self._on_event, name="audit-log", queue_size=4096)
 
     def _on_event(self, event: Event) -> None:
         self.record(AuditRecord.from_event(self._clock.now(), event))
